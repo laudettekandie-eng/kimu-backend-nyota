@@ -17,7 +17,7 @@ SHORTCODE = os.getenv("MPESA_SHORTCODE")
 
 CALLBACK_URL = os.getenv(
     "CALLBACK_URL",
-    "https://your-render-backend.onrender.com/api/mpesa/callback"
+    "https://spherespike-credit.onrender.com/api/mpesa/callback"
 )
 
 # Safaricom endpoints
