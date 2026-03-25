@@ -1,47 +1,26 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
-import base64
 import os
-from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
 
 # ================== ENV VARIABLES ==================
 
-CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY")
-CONSUMER_SECRET = os.getenv("MPESA_CONSUMER_SECRET")
-PASSKEY = os.getenv("MPESA_PASSKEY")
-SHORTCODE = os.getenv("MPESA_SHORTCODE")
+PAYHERO_API_USERNAME = os.getenv("PAYHERO_API_USERNAME")
+PAYHERO_API_PASSWORD = os.getenv("PAYHERO_API_PASSWORD")
+PAYHERO_CHANNEL_ID = os.getenv("PAYHERO_CHANNEL_ID")
+CALLBACK_URL = os.getenv("CALLBACK_URL")
 
-CALLBACK_URL = os.getenv(
-    "CALLBACK_URL",
-    "https://spherespike-credit.onrender.com/api/mpesa/callback"
-)
+PAYHERO_BASE_URL = "https://backend.payhero.co.ke/api/v2/"
 
-# Safaricom endpoints
-TOKEN_URL = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
-STK_PUSH_URL = "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
-
-# ===================================================
+# ==================================================
 
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "OK", "service": "MPESA DARAKA BACKEND RUNNING"}), 200
-
-
-# ================== ACCESS TOKEN ==================
-
-def get_access_token():
-
-    response = requests.get(
-        TOKEN_URL,
-        auth=(CONSUMER_KEY, CONSUMER_SECRET)
-    )
-
-    return response.json()["access_token"]
+    return jsonify({"status": "OK", "service": "PAYHERO BACKEND RUNNING"}), 200
 
 
 # ================== STK PUSH ==================
@@ -57,36 +36,24 @@ def stk_push():
     if not phone or not amount:
         return jsonify({"error": "phone and amount required"}), 400
 
-    access_token = get_access_token()
-
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-
-    password_str = SHORTCODE + PASSKEY + timestamp
-    password = base64.b64encode(password_str.encode()).decode()
+    url = PAYHERO_BASE_URL + "payments"
 
     payload = {
-        "BusinessShortCode": SHORTCODE,
-        "Password": password,
-        "Timestamp": timestamp,
-        "TransactionType": "CustomerPayBillOnline",
-        "Amount": int(amount),
-        "PartyA": phone,
-        "PartyB": SHORTCODE,
-        "PhoneNumber": phone,
-        "CallBackURL": CALLBACK_URL,
-        "AccountReference": "OkoaChapaa",
-        "TransactionDesc": "Payment"
-    }
-
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
+        "amount": int(amount),
+        "phone_number": phone,
+        "channel_id": int(PAYHERO_CHANNEL_ID),
+        "external_reference": "RailwayTillPayment",
+        "provider": "m-pesa",
+        "callback_url": CALLBACK_URL
     }
 
     response = requests.post(
-        STK_PUSH_URL,
+        url,
         json=payload,
-        headers=headers
+        auth=(PAYHERO_API_USERNAME, PAYHERO_API_PASSWORD),
+        headers={
+            "Content-Type": "application/json"
+        }
     )
 
     return jsonify(response.json()), response.status_code
@@ -94,15 +61,15 @@ def stk_push():
 
 # ================== CALLBACK ==================
 
-@app.route("/api/mpesa/callback", methods=["POST"])
-def mpesa_callback():
+@app.route("/api/payhero/callback", methods=["POST"])
+def payhero_callback():
 
     data = request.get_json()
 
-    print("==== MPESA CALLBACK RECEIVED ====")
+    print("==== PAYHERO CALLBACK RECEIVED ====")
     print(data)
 
-    return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+    return jsonify({"status": "received"}), 200
 
 
 if __name__ == "__main__":
